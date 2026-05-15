@@ -1,0 +1,1418 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Europe's Meat Economy · 2026 Data Report</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,300;9..144,400;9..144,700;9..144,900&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.9.0/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+:root {
+  --bg:     #070D09;
+  --surf:   #0C1610;
+  --card:   #111D15;
+  --card2:  #172C1C;
+  --border: #1E3425;
+  --g-hi:   #3DCB72;
+  --g-mid:  #1B8A4A;
+  --g-lo:   #0D5230;
+  --amber:  #E8A232;
+  --amb2:   #C47A18;
+  --red:    #D95454;
+  --blue:   #4D9EC4;
+  --mauve:  #9B7CB8;
+  --txt:    #EBE5D6;
+  --txt2:   #8CB097;
+  --txt3:   #4A6855;
+  --serif:  'Fraunces', Georgia, serif;
+  --sans:   'DM Sans', system-ui, sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-snap-type: y mandatory; overflow-y: scroll; scroll-behavior: smooth; }
+body { background: var(--bg); color: var(--txt); font-family: var(--sans); font-size: 14px; line-height: 1.5; }
+
+/* ── SCROLLBAR ─────────────────────────────── */
+::-webkit-scrollbar { width: 3px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── NAV DOTS ──────────────────────────────── */
+.nav-dots {
+  position: fixed; right: 20px; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 9px; z-index: 200;
+}
+.nav-dot {
+  width: 5px; height: 5px; border-radius: 50%; background: var(--txt3);
+  cursor: pointer; border: none; padding: 0;
+  transition: background .25s, transform .25s;
+}
+.nav-dot.active { background: var(--g-hi); transform: scale(1.8); }
+.nav-dot:hover  { background: var(--txt2); }
+
+/* ── TOOLTIP ───────────────────────────────── */
+#tooltip {
+  position: fixed; background: var(--card2); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px 14px; font-size: 12px; color: var(--txt);
+  pointer-events: none; opacity: 0; transition: opacity .15s; z-index: 1000;
+  max-width: 210px; box-shadow: 0 6px 30px rgba(0,0,0,.5);
+}
+#tooltip.show { opacity: 1; }
+.tt-title { font-family: var(--serif); font-size: 13px; font-weight: 700; color: var(--g-hi); margin-bottom: 5px; }
+.tt-row   { display: flex; justify-content: space-between; gap: 14px; color: var(--txt2); line-height: 1.7; }
+.tt-val   { color: var(--txt); font-weight: 500; }
+
+/* ── SECTION BASE ──────────────────────────── */
+.section {
+  scroll-snap-align: start;
+  height: 100vh; min-height: 600px;
+  display: flex; flex-direction: column;
+  padding: 42px 56px 32px 48px;
+  position: relative; overflow: hidden;
+}
+
+/* ── SECTION HEADER ────────────────────────── */
+.sec-eyebrow {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 18px; flex-shrink: 0;
+}
+.sec-num  { font-family: var(--serif); font-size: 11px; color: var(--g-hi); letter-spacing: .08em; opacity: .7; }
+.sec-rule { flex-shrink: 0; width: 28px; height: 1px; background: var(--border); }
+.sec-tag  { font-size: 9.5px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; color: var(--txt3); }
+.sec-title {
+  font-family: var(--serif); font-size: clamp(20px, 2.8vw, 34px);
+  font-weight: 700; line-height: 1.15; color: var(--txt);
+  margin-bottom: 5px; max-width: 680px;
+}
+.sec-sub {
+  font-size: 12.5px; color: var(--txt2); font-weight: 300;
+  max-width: 600px; margin-bottom: 16px; line-height: 1.65;
+}
+.sec-note {
+  margin-top: 6px; font-size: 9.5px; color: var(--txt3);
+  font-style: italic; flex-shrink: 0;
+}
+
+/* ── CHART AREA ────────────────────────────── */
+.chart-area {
+  flex: 1; min-height: 0; position: relative;
+  opacity: 0; transform: translateY(16px);
+  transition: opacity .65s ease, transform .65s ease;
+}
+.chart-area.in { opacity: 1; transform: none; }
+.chart-area svg { width: 100%; height: 100%; display: block; }
+
+/* ── LEGEND ────────────────────────────────── */
+.legend { display: flex; align-items: center; gap: 18px; flex-wrap: wrap; margin-top: 8px; flex-shrink: 0; }
+.leg-item { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--txt2); }
+.leg-sw   { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+/* ── BACKGROUND DECORATION ─────────────────── */
+.bg-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 64px 64px; opacity: .2;
+}
+.bg-glow {
+  position: absolute; border-radius: 50%; pointer-events: none;
+  background: radial-gradient(circle, rgba(61,203,114,.07) 0%, transparent 65%);
+}
+
+/* ── HERO ───────────────────────────────────── */
+#s0 { justify-content: center; }
+.hero-eyebrow {
+  font-size: 9.5px; font-weight: 600; letter-spacing: .28em; text-transform: uppercase;
+  color: var(--g-hi); margin-bottom: 22px; display: flex; align-items: center; gap: 10px;
+}
+.hero-eyebrow::before { content:''; display:inline-block; width:18px; height:1px; background:var(--g-hi); }
+.hero-title {
+  font-family: var(--serif);
+  font-size: clamp(44px, 6.5vw, 86px);
+  font-weight: 900; line-height: 1.0;
+  color: var(--txt); letter-spacing: -.025em; margin-bottom: 6px;
+}
+.hero-title em { font-style: italic; color: var(--g-hi); }
+.hero-desc { font-size: 14.5px; color: var(--txt2); max-width: 500px; line-height: 1.75; margin-bottom: 44px; font-weight: 300; }
+
+.kpi-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: 1px; background: var(--border);
+  border: 1px solid var(--border); border-radius: 8px; overflow: hidden;
+  max-width: 900px;
+}
+.kpi-card { background: var(--card); padding: 26px 22px; transition: background .2s; cursor: default; }
+.kpi-card:hover { background: var(--card2); }
+.kpi-lbl  { font-size: 9.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--txt3); margin-bottom: 10px; }
+.kpi-val  { font-family: var(--serif); font-size: clamp(28px, 3.2vw, 44px); font-weight: 900; color: var(--txt); letter-spacing: -.03em; line-height: 1; margin-bottom: 8px; }
+.kpi-val sup { font-size: .48em; font-weight: 300; color: var(--txt2); }
+.kpi-trend { font-size: 11.5px; }
+.kpi-trend.up   { color: var(--g-hi); }
+.kpi-trend.down { color: var(--red); }
+.kpi-trend.neu  { color: var(--txt3); }
+
+/* ── SVG SHARED ─────────────────────────────── */
+.country { stroke: var(--bg); stroke-width: .6; transition: opacity .15s; cursor: pointer; }
+.country:hover { opacity: .8; }
+.ax-line, .domain { stroke: var(--border) !important; }
+.ax-tick text { fill: var(--txt3) !important; font-family: var(--sans) !important; font-size: 10px !important; }
+.grid-l { stroke: var(--border); stroke-dasharray: 3 4; opacity: .7; }
+.bar-lbl { font-family: var(--sans); font-size: 11px; fill: var(--txt2); }
+.bar-val { font-family: var(--sans); font-size: 11px; fill: var(--txt); font-weight: 500; }
+.sk-link { opacity: .38; transition: opacity .2s; stroke: none; }
+.sk-link:hover { opacity: .7; }
+
+.scroll-hint {
+  position: absolute; bottom: 24px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 5px; opacity: .35;
+}
+.scroll-hint span { font-size: 9px; letter-spacing: .18em; text-transform: uppercase; color: var(--txt3); }
+</style>
+</head>
+<body>
+
+<!-- NAV DOTS -->
+<nav class="nav-dots" id="navDots">
+  <button class="nav-dot active" data-s="0" title="Overview"></button>
+  <button class="nav-dot" data-s="1" title="Consumption Map"></button>
+  <button class="nav-dot" data-s="2" title="Trade Balance Map"></button>
+  <button class="nav-dot" data-s="3" title="Top Exporters"></button>
+  <button class="nav-dot" data-s="4" title="Top Importers"></button>
+  <button class="nav-dot" data-s="5" title="Trade Corridors"></button>
+  <button class="nav-dot" data-s="6" title="Supply Chain"></button>
+  <button class="nav-dot" data-s="7" title="Meat Type Mix"></button>
+  <button class="nav-dot" data-s="8" title="EU vs Non-EU"></button>
+  <button class="nav-dot" data-s="9" title="Net Position"></button>
+  <button class="nav-dot" data-s="10" title="Industry Players"></button>
+</nav>
+
+<!-- TOOLTIP -->
+<div id="tooltip">
+  <div class="tt-title" id="tt-title"></div>
+  <div id="tt-body"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 0 — HERO
+════════════════════════════════════════════════ -->
+<section class="section" id="s0">
+  <div class="bg-grid"></div>
+  <div class="bg-glow" style="width:700px;height:700px;top:-200px;right:-180px;"></div>
+  <div style="position:relative;z-index:1;max-width:1000px">
+    <div class="hero-eyebrow">2026 Data Report · European Meat Industry</div>
+    <h1 class="hero-title">Europe's<br><em>Meat Economy</em></h1>
+    <p class="hero-desc">Production, consumption, and cross-border trade flows across 35 European countries — from farm gate to export terminal.</p>
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-lbl">EU Production</div>
+        <div class="kpi-val">36.7<sup>Mt</sup></div>
+        <div class="kpi-trend down">↓ 2.1% vs 2023</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">Per Capita Avg.</div>
+        <div class="kpi-val">73<sup>kg/yr</sup></div>
+        <div class="kpi-trend down">↓ 1.4% vs 2023</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">Total Exports</div>
+        <div class="kpi-val">€17.4<sup>B</sup></div>
+        <div class="kpi-trend up">↑ 4.2% vs 2023</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-lbl">Decline Since 2010</div>
+        <div class="kpi-val">−12<sup>%</sup></div>
+        <div class="kpi-trend neu">consumer shift</div>
+      </div>
+    </div>
+  </div>
+  <div class="scroll-hint">
+    <span>Scroll to explore</span>
+    <svg width="10" height="18" viewBox="0 0 10 18"><path d="M5 0v14M1 10l4 4 4-4" stroke="var(--txt3)" stroke-width="1.2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 1 — CONSUMPTION MAP
+════════════════════════════════════════════════ -->
+<section class="section" id="s1">
+  <div class="sec-eyebrow"><span class="sec-num">01</span><span class="sec-rule"></span><span class="sec-tag">Consumption</span></div>
+  <h2 class="sec-title">Meat Consumption Per Capita<br>by Country, 2026</h2>
+  <p class="sec-sub">Annual kilograms of meat consumed per person. Portugal and Spain lead consumption; Eastern European markets trail the continental average.</p>
+  <div class="chart-area" id="ca1"><svg id="sv1"></svg></div>
+  <div class="legend" id="lg1"></div>
+  <p class="sec-note">Source: Eurostat, FAO Food Balance Sheets — illustrative estimates for demonstration.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 2 — TRADE BALANCE MAP
+════════════════════════════════════════════════ -->
+<section class="section" id="s2">
+  <div class="sec-eyebrow"><span class="sec-num">02</span><span class="sec-rule"></span><span class="sec-tag">Trade Balance</span></div>
+  <h2 class="sec-title">Net Trade Position<br>by Country, 2026</h2>
+  <p class="sec-sub">Green = net exporter surplus; amber/red = net import deficit. Germany, the Netherlands and Denmark are Europe's dominant export engines.</p>
+  <div class="chart-area" id="ca2"><svg id="sv2"></svg></div>
+  <div class="legend" id="lg2"></div>
+  <p class="sec-note">Source: Eurostat Comext — illustrative estimates for demonstration.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 3 — EXPORT COMPOSITION BY MEAT TYPE
+════════════════════════════════════════════════ -->
+<section class="section" id="s3">
+  <div class="sec-eyebrow"><span class="sec-num">03</span><span class="sec-rule"></span><span class="sec-tag">Export Composition</span></div>
+  <h2 class="sec-title">Export Volume by Meat Type<br>per Exporting Country, 2026</h2>
+  <p class="sec-sub">Stacked export volumes (thousand tonnes) broken down by pork, beef, poultry and lamb. Pork dominates most exporters; Ireland is the outlier with beef leading.</p>
+  <div class="chart-area" id="ca3"><svg id="sv3"></svg></div>
+  <div class="legend" id="lg3"></div>
+  <p class="sec-note">Source: EU Trade Statistics, UN Comtrade — illustrative estimates for demonstration.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 4 — TOP IMPORTERS
+════════════════════════════════════════════════ -->
+<section class="section" id="s4">
+  <div class="sec-eyebrow"><span class="sec-num">04</span><span class="sec-rule"></span><span class="sec-tag">Import Markets</span></div>
+  <h2 class="sec-title">Top 10 Meat Importers<br>in Europe</h2>
+  <p class="sec-sub">Total meat import volumes in thousand tonnes (2026). Italy and the UK are Europe's largest meat-buying markets, together representing 22% of total imports.</p>
+  <div class="chart-area" id="ca4"><svg id="sv4"></svg></div>
+  <p class="sec-note">Source: EU Trade Statistics, UN Comtrade — illustrative estimates for demonstration.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 5 — TRADE CORRIDORS SANKEY
+════════════════════════════════════════════════ -->
+<section class="section" id="s5">
+  <div class="sec-eyebrow"><span class="sec-num">05</span><span class="sec-rule"></span><span class="sec-tag">Trade Corridors</span></div>
+  <h2 class="sec-title">Intra-European Meat<br>Trade Flow Corridors</h2>
+  <p class="sec-sub">Major bilateral flows between exporting and importing countries (thousand tonnes, 2026). Link thickness is proportional to volume.</p>
+  <div class="chart-area" id="ca5"><svg id="sv5"></svg></div>
+  <p class="sec-note">Source: Eurostat Comext, national trade statistics — illustrative estimates for demonstration.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 6 — SUPPLY CHAIN SANKEY
+════════════════════════════════════════════════ -->
+<section class="section" id="s6">
+  <div class="sec-eyebrow"><span class="sec-num">06</span><span class="sec-rule"></span><span class="sec-tag">Supply Chain</span></div>
+  <h2 class="sec-title">EU Meat Supply Chain<br>Flow Analysis</h2>
+  <p class="sec-sub">Livestock type → major processing country → destination market. Pork dominates volume at 49% of all meat produced; Germany is the primary processing hub.</p>
+  <div class="chart-area" id="ca6"><svg id="sv6"></svg></div>
+  <p class="sec-note">Source: European Commission agricultural reports — illustrative estimates for demonstration.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 7 — MEAT TYPE GROUPED BAR
+════════════════════════════════════════════════ -->
+<section class="section" id="s7">
+  <div class="sec-eyebrow"><span class="sec-num">07</span><span class="sec-rule"></span><span class="sec-tag">Consumption Mix</span></div>
+  <h2 class="sec-title">Per-Capita Consumption<br>by Meat Type Across Key Markets</h2>
+  <p class="sec-sub">Kilograms per person per year, broken down by pork, beef, poultry and lamb. Pork dominates Northern and Central Europe; poultry is gaining share rapidly.</p>
+  <div class="chart-area" id="ca7"><svg id="sv7"></svg></div>
+  <div class="legend" id="lg7"></div>
+  <p class="sec-note">Source: Eurostat, national agricultural statistics — illustrative estimates for demonstration.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 8 — PRODUCTION TREND + FORECAST
+════════════════════════════════════════════════ -->
+<section class="section" id="s8">
+  <div class="sec-eyebrow"><span class="sec-num">08</span><span class="sec-rule"></span><span class="sec-tag">Trend &amp; Forecast</span></div>
+  <h2 class="sec-title">EU Meat Production by Type<br>2020–2026 Actual · 2027–2030 Forecast</h2>
+  <p class="sec-sub">Pork and beef volumes are in structural decline as consumer preferences shift. Poultry is the only category forecast to grow, crossing beef by 2028. Dashed lines indicate projected values.</p>
+  <div class="chart-area" id="ca8"><svg id="sv8"></svg></div>
+  <div class="legend" id="lg8"></div>
+  <p class="sec-note">Source: Eurostat, European Commission agricultural outlook — projections are illustrative estimates.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 9 — TRADE BALANCE BY MEAT TYPE
+════════════════════════════════════════════════ -->
+<section class="section" id="s9">
+  <div class="sec-eyebrow"><span class="sec-num">09 — 10</span><span class="sec-rule"></span><span class="sec-tag">Balance by Product · Summary</span></div>
+  <h2 class="sec-title">Trade Balance by Meat Type<br>for Key European Countries</h2>
+  <p class="sec-sub">Net surplus (green) and deficit (amber) broken down by pork, beef, poultry and lamb. A country may export pork yet import beef — revealing product-level trade specialisation.</p>
+  <div class="chart-area" id="ca9"><svg id="sv9"></svg></div>
+  <div class="legend" id="lg9"></div>
+  <p class="sec-note">Data: Eurostat · Design: Europe Meat Economy Report 2026 · All figures are illustrative dummy data for demonstration purposes.</p>
+</section>
+
+<!-- ═══════════════════════════════════════════════
+     SECTION 10 — MAJOR INDUSTRY PLAYERS
+════════════════════════════════════════════════ -->
+<section class="section" id="s10">
+  <div class="sec-eyebrow"><span class="sec-num">10</span><span class="sec-rule"></span><span class="sec-tag">Industry Players</span></div>
+  <h2 class="sec-title">Europe's Biggest Meat<br>Processing Companies</h2>
+  <p class="sec-sub">Ranked by annual turnover (€B). Colour indicates primary product category. Employee count shown as secondary scale. Includes Biovela — Lithuania's flagship processor and leading pork exporter.</p>
+  <div class="chart-area" id="ca10"><svg id="sv10"></svg></div>
+  <div class="legend" id="lg10"></div>
+  <p class="sec-note">Sources: Company annual reports, industry directories — illustrative estimates for demonstration.</p>
+</section>
+
+<script>
+// ═══════════════════════════════════════════════
+// DATA
+// ═══════════════════════════════════════════════
+
+const ISO2_TO_NUM = {
+  DE:'276',FR:'250',ES:'724',IT:'380',PL:'616',NL:'528',BE:'056',AT:'040',
+  CZ:'203',HU:'348',RO:'642',SE:'752',DK:'208',FI:'246',NO:'578',PT:'620',
+  GR:'300',IE:'372',SK:'703',HR:'191',BG:'100',LT:'440',LV:'428',EE:'233',
+  SI:'705',LU:'442',CH:'756',RS:'688',UA:'804',AL:'008',MK:'807',ME:'499',
+  BA:'070',GB:'826',IS:'352',BY:'112',MD:'498',TR:'792'
+};
+const NUM_TO_ISO2 = Object.fromEntries(Object.entries(ISO2_TO_NUM).map(([a,b])=>[b,a]));
+
+const NAMES = {
+  DE:'Germany',FR:'France',ES:'Spain',IT:'Italy',PL:'Poland',NL:'Netherlands',
+  BE:'Belgium',AT:'Austria',CZ:'Czech Rep.',HU:'Hungary',RO:'Romania',SE:'Sweden',
+  DK:'Denmark',FI:'Finland',NO:'Norway',PT:'Portugal',GR:'Greece',IE:'Ireland',
+  SK:'Slovakia',HR:'Croatia',BG:'Bulgaria',LT:'Lithuania',LV:'Latvia',EE:'Estonia',
+  SI:'Slovenia',LU:'Luxembourg',CH:'Switzerland',RS:'Serbia',UA:'Ukraine',AL:'Albania',
+  MK:'N.Macedonia',ME:'Montenegro',BA:'Bosnia',GB:'United Kingdom',IS:'Iceland',
+  BY:'Belarus',MD:'Moldova',TR:'Turkey'
+};
+
+// kg/capita/year
+const CONSUMPTION = {
+  PT:108,ES:95,DK:94,DE:87,AT:83,GB:82,IE:82,CZ:80,IS:80,BE:78,FR:78,
+  SI:78,NL:77,FI:76,GR:76,HU:75,IT:74,PL:73,SK:72,NO:72,SE:71,CH:70,
+  HR:69,EE:68,LT:65,BY:65,LV:63,RS:60,BG:58,ME:58,MK:57,RO:55,
+  BA:52,AL:48,UA:48,MD:40
+};
+
+// Net trade (kt) positive = exporter
+const BALANCE = {
+  DE:2800,NL:1900,DK:1600,ES:1200,PL:800,BE:600,IE:520,HU:180,AT:160,
+  CZ:90,SE:50,FI:-90,PT:-100,GR:-200,RO:-180,HR:-150,BG:-130,
+  SK:-80,SI:-60,LT:-40,LV:-30,EE:-20,NO:-280,CH:-350,FR:-400,GB:-800,IT:-1100
+};
+
+const EXPORTERS = [
+  {cc:'DE',name:'Germany',   val:3870},
+  {cc:'NL',name:'Netherlands',val:2940},
+  {cc:'DK',name:'Denmark',   val:2410},
+  {cc:'ES',name:'Spain',     val:2280},
+  {cc:'PL',name:'Poland',    val:1850},
+  {cc:'BE',name:'Belgium',   val:1340},
+  {cc:'FR',name:'France',    val:890},
+  {cc:'IE',name:'Ireland',   val:760},
+  {cc:'HU',name:'Hungary',   val:540},
+  {cc:'AT',name:'Austria',   val:380}
+];
+
+const IMPORTERS = [
+  {cc:'IT',name:'Italy',       val:1820},
+  {cc:'GB',name:'UK',          val:1650},
+  {cc:'FR',name:'France',      val:1290},
+  {cc:'DE',name:'Germany',     val:1080},
+  {cc:'GR',name:'Greece',      val:480},
+  {cc:'PT',name:'Portugal',    val:390},
+  {cc:'RO',name:'Romania',     val:310},
+  {cc:'HR',name:'Croatia',     val:270},
+  {cc:'BG',name:'Bulgaria',    val:220},
+  {cc:'FI',name:'Finland',     val:190}
+];
+
+const MEAT_TYPES = {
+  DE:{pork:47,beef:16,poultry:21,lamb:3},
+  FR:{pork:32,beef:24,poultry:24,lamb:5},
+  ES:{pork:52,beef:14,poultry:26,lamb:7},
+  IT:{pork:34,beef:22,poultry:27,lamb:6},
+  PL:{pork:45,beef:12,poultry:28,lamb:1},
+  NL:{pork:42,beef:17,poultry:25,lamb:3},
+  DK:{pork:56,beef:19,poultry:20,lamb:2},
+  AT:{pork:46,beef:18,poultry:22,lamb:4}
+};
+
+// Exports by meat type per country (kt)
+const EXPORT_BY_TYPE = {
+  DE:{pork:2200,beef:480,poultry:950,lamb:240},
+  NL:{pork:1480,beef:560,poultry:760,lamb:140},
+  DK:{pork:1580,beef:290,poultry:460,lamb:80},
+  ES:{pork:1240,beef:310,poultry:640,lamb:90},
+  PL:{pork:980,beef:240,poultry:560,lamb:70},
+  BE:{pork:680,beef:290,poultry:310,lamb:60},
+  FR:{pork:380,beef:290,poultry:190,lamb:30},
+  IE:{pork:80,beef:560,poultry:100,lamb:20},
+  HU:{pork:280,beef:90,poultry:150,lamb:20},
+  AT:{pork:190,beef:110,poultry:70,lamb:10},
+  LT:{pork:180,beef:30,poultry:60,lamb:5}
+};
+
+// Production by meat type per country (kt)
+const PRODUCTION_BY_TYPE = {
+  DE:{pork:5800,beef:1180,poultry:1680,lamb:220},
+  ES:{pork:4200,beef:720,poultry:1980,lamb:230},
+  FR:{pork:2100,beef:1420,poultry:1840,lamb:80},
+  PL:{pork:2800,beef:480,poultry:1540,lamb:30},
+  NL:{pork:1680,beef:380,poultry:1120,lamb:60},
+  IT:{pork:1540,beef:820,poultry:1260,lamb:50},
+  DK:{pork:1850,beef:160,poultry:280,lamb:20},
+  BE:{pork:1080,beef:280,poultry:480,lamb:40},
+  LT:{pork:420,beef:80,poultry:140,lamb:5}
+};
+
+// EU-level production trend + forecast (million tonnes)
+// 2020–2026 = actual/estimated, 2027–2030 = forecast
+const PRODUCTION_TREND = {
+  years:   [2020,2021,2022,2023,2024,2025,2026,2027,2028,2029,2030],
+  pork:    [18.2,18.0,17.8,17.5,17.2,17.0,16.8,16.4,16.0,15.7,15.3],
+  beef:    [ 7.8, 7.6, 7.5, 7.4, 7.3, 7.2, 7.1, 7.0, 6.9, 6.8, 6.6],
+  poultry: [ 9.2, 9.5, 9.8,10.1,10.4,10.6,10.8,11.1,11.4,11.8,12.1],
+  lamb:    [ 1.1, 1.1, 1.0, 1.0, 1.0, 0.9, 0.9, 0.9, 0.8, 0.8, 0.8]
+};
+const FORECAST_START = 2027;
+
+// 2028 export growth forecast per country (%)
+const EXPORT_FORECAST_PCT = {
+  DE:+3.2,NL:+4.8,DK:+1.9,ES:+6.1,PL:+8.4,BE:+2.7,FR:-1.2,IE:+5.5,HU:+9.0,AT:+1.4,LT:+12.3
+};
+const BALANCE_BY_TYPE = {
+  DE:{pork:1900,beef:-180,poultry:870,lamb:210},
+  NL:{pork:1080,beef:220,poultry:500,lamb:100},
+  DK:{pork:1320,beef:90,poultry:160,lamb:30},
+  ES:{pork:880,beef:100,poultry:200,lamb:20},
+  PL:{pork:490,beef:-60,poultry:360,lamb:-10},
+  FR:{pork:-90,beef:80,poultry:-310,lamb:-80},
+  IT:{pork:-480,beef:-310,poultry:-240,lamb:-70},
+  GB:{pork:-380,beef:-230,poultry:-160,lamb:10}
+};
+
+// Major European meat processing companies
+const COMPANIES = [
+  {name:'Danish Crown',    cc:'DK', rev:9.2,  emp:28.0, type:'pork',      highlight:false},
+  {name:'Tönnies Group',   cc:'DE', rev:7.8,  emp:16.0, type:'pork',      highlight:false},
+  {name:'Vion Food Group', cc:'NL', rev:6.1,  emp:12.0, type:'pork',      highlight:false},
+  {name:'Bigard Group',    cc:'FR', rev:4.2,  emp:13.0, type:'beef',      highlight:false},
+  {name:'Campofrío',       cc:'ES', rev:3.8,  emp:9.0,  type:'processed', highlight:false},
+  {name:'Westfleisch',     cc:'DE', rev:2.9,  emp:6.5,  type:'pork',      highlight:false},
+  {name:'Bell Food Group', cc:'CH', rev:2.7,  emp:11.0, type:'mixed',     highlight:false},
+  {name:'PHW Group',       cc:'DE', rev:2.1,  emp:7.2,  type:'poultry',   highlight:false},
+  {name:'Cargill Meat EU', cc:'NL', rev:2.0,  emp:4.0,  type:'beef',      highlight:false},
+  {name:'Animex',          cc:'PL', rev:1.8,  emp:8.0,  type:'pork',      highlight:false},
+  {name:'Biovela Group',   cc:'LT', rev:0.6,  emp:2.8,  type:'pork',      highlight:true},
+];
+
+// ═══════════════════════════════════════════════
+// THEME COLORS (JS)
+// ═══════════════════════════════════════════════
+const C = {
+  bg:'#070D09', card:'#111D15', card2:'#172C1C', border:'#1E3425',
+  gHi:'#3DCB72', gMid:'#1B8A4A', gLo:'#0D5230',
+  amber:'#E8A232', amb2:'#C47A18', red:'#D95454', blue:'#4D9EC4', mauve:'#9B7CB8',
+  txt:'#EBE5D6', txt2:'#8CB097', txt3:'#4A6855'
+};
+
+// ═══════════════════════════════════════════════
+// TOOLTIP HELPERS
+// ═══════════════════════════════════════════════
+const ttEl = document.getElementById('tooltip');
+const ttTitle = document.getElementById('tt-title');
+const ttBody  = document.getElementById('tt-body');
+
+function showTT(e, title, rows) {
+  ttTitle.textContent = title;
+  ttBody.innerHTML = rows.map(([k,v])=>
+    `<div class="tt-row"><span>${k}</span><span class="tt-val">${v}</span></div>`
+  ).join('');
+  ttEl.classList.add('show');
+  moveTT(e);
+}
+function moveTT(e) {
+  const x = Math.min(e.clientX + 14, window.innerWidth - 225);
+  ttEl.style.left = x + 'px';
+  ttEl.style.top  = (e.clientY - 12) + 'px';
+}
+function hideTT() { ttEl.classList.remove('show'); }
+document.addEventListener('mousemove', e => { if (ttEl.classList.contains('show')) moveTT(e); });
+
+// ═══════════════════════════════════════════════
+// WORLD MAP CACHE
+// ═══════════════════════════════════════════════
+let _worldData = null;
+async function getWorld() {
+  if (!_worldData) {
+    _worldData = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(r=>r.json());
+  }
+  return _worldData;
+}
+
+function makeProjection(W, H) {
+  return d3.geoAzimuthalEqualArea()
+    .rotate([-10, -52])
+    .translate([W * .50, H * .50])
+    .scale(W * 1.05);
+}
+
+// ═══════════════════════════════════════════════
+// SECTION 1 — CONSUMPTION MAP
+// ═══════════════════════════════════════════════
+async function drawConsumptionMap() {
+  const ca = document.getElementById('ca1');
+  const W = ca.clientWidth, H = ca.clientHeight;
+  const svg = d3.select('#sv1').attr('viewBox',`0 0 ${W} ${H}`);
+
+  const vals  = Object.values(CONSUMPTION);
+  const cScale = d3.scaleSequential()
+    .domain([d3.min(vals), d3.max(vals)])
+    .interpolator(d3.interpolate('#0C3520','#3DCB72'));
+
+  const proj = makeProjection(W, H);
+  const path = d3.geoPath().projection(proj);
+
+  try {
+    const world    = await getWorld();
+    const features = topojson.feature(world, world.objects.countries).features;
+    svg.selectAll('.country')
+      .data(features)
+      .join('path')
+      .attr('class','country')
+      .attr('d', path)
+      .attr('fill', d => {
+        const cc = NUM_TO_ISO2[String(d.id).padStart(3,'0')];
+        return cc && CONSUMPTION[cc] ? cScale(CONSUMPTION[cc]) : '#0F1E15';
+      })
+      .on('mousemove',(e,d)=>{
+        const cc = NUM_TO_ISO2[String(d.id).padStart(3,'0')];
+        if (!cc || !CONSUMPTION[cc]) return;
+        const diff = CONSUMPTION[cc] - 73;
+        showTT(e, NAMES[cc]||cc, [
+          ['Per capita', CONSUMPTION[cc]+' kg / yr'],
+          ['vs EU avg', (diff>0?'+':'')+diff+' kg']
+        ]);
+      })
+      .on('mouseleave', hideTT);
+  } catch(_) {
+    svg.append('text').attr('x',W/2).attr('y',H/2).attr('text-anchor','middle')
+      .attr('fill',C.txt2).attr('font-size',13).text('Map unavailable — check network');
+  }
+
+  // Gradient legend
+  const lg = document.getElementById('lg1');
+  lg.innerHTML = '';
+  const ls = d3.select(lg).append('svg').attr('width',240).attr('height',22);
+  const def = ls.append('defs');
+  const g   = def.append('linearGradient').attr('id','cg');
+  g.append('stop').attr('offset','0%').attr('stop-color','#0C3520');
+  g.append('stop').attr('offset','100%').attr('stop-color','#3DCB72');
+  ls.append('rect').attr('x',0).attr('y',4).attr('width',160).attr('height',8).attr('rx',2).attr('fill','url(#cg)');
+  [[0,'40 kg'],[160,'110 kg']].forEach(([x,t])=>
+    ls.append('text').attr('x',x).attr('y',20).attr('fill',C.txt3).attr('font-size',10).attr('text-anchor',x===0?'start':'end').text(t)
+  );
+}
+
+// ═══════════════════════════════════════════════
+// SECTION 2 — TRADE BALANCE MAP
+// ═══════════════════════════════════════════════
+async function drawBalanceMap() {
+  const ca = document.getElementById('ca2');
+  const W = ca.clientWidth, H = ca.clientHeight;
+  const svg = d3.select('#sv2').attr('viewBox',`0 0 ${W} ${H}`);
+
+  const maxA = d3.max(Object.values(BALANCE).map(Math.abs));
+  const cScale = d3.scaleDiverging()
+    .domain([-maxA, 0, maxA])
+    .interpolator(d3.interpolateRgbBasis([C.amber,'#172C1C',C.gHi]));
+
+  const proj = makeProjection(W, H);
+  const path = d3.geoPath().projection(proj);
+
+  try {
+    const world    = await getWorld();
+    const features = topojson.feature(world, world.objects.countries).features;
+    svg.selectAll('.country')
+      .data(features)
+      .join('path').attr('class','country').attr('d', path)
+      .attr('fill', d => {
+        const cc  = NUM_TO_ISO2[String(d.id).padStart(3,'0')];
+        const val = cc != null ? BALANCE[cc] : null;
+        return val != null ? cScale(val) : '#0F1E15';
+      })
+      .on('mousemove',(e,d)=>{
+        const cc  = NUM_TO_ISO2[String(d.id).padStart(3,'0')];
+        const val = cc ? BALANCE[cc] : null;
+        if (val == null) return;
+        showTT(e, NAMES[cc]||cc, [
+          ['Position', val>0?'Net Exporter':'Net Importer'],
+          ['Balance',  (val>0?'+':'')+val.toLocaleString()+' kt']
+        ]);
+      })
+      .on('mouseleave', hideTT);
+  } catch(_) {
+    svg.append('text').attr('x',W/2).attr('y',H/2).attr('text-anchor','middle')
+      .attr('fill',C.txt2).attr('font-size',13).text('Map unavailable — check network');
+  }
+
+  // Diverging gradient legend
+  const lg = document.getElementById('lg2');
+  lg.innerHTML = '';
+  const ls = d3.select(lg).append('svg').attr('width',280).attr('height',22);
+  const def = ls.append('defs');
+  const gd  = def.append('linearGradient').attr('id','bg2');
+  gd.append('stop').attr('offset','0%').attr('stop-color',C.amber);
+  gd.append('stop').attr('offset','50%').attr('stop-color','#172C1C');
+  gd.append('stop').attr('offset','100%').attr('stop-color',C.gHi);
+  ls.append('rect').attr('x',40).attr('y',4).attr('width',180).attr('height',8).attr('rx',2).attr('fill','url(#bg2)');
+  ls.append('text').attr('x',40).attr('y',20).attr('fill',C.amber).attr('font-size',10).attr('text-anchor','middle').text('Importer');
+  ls.append('text').attr('x',130).attr('y',20).attr('fill',C.txt3).attr('font-size',10).attr('text-anchor','middle').text('Neutral');
+  ls.append('text').attr('x',220).attr('y',20).attr('fill',C.gHi).attr('font-size',10).attr('text-anchor','middle').text('Exporter');
+}
+
+// ═══════════════════════════════════════════════
+// HORIZONTAL BAR CHART (reusable)
+// ═══════════════════════════════════════════════
+function drawHBar(svgId, caId, data, colorFn, tooltipFn) {
+  const ca = document.getElementById(caId);
+  const W  = ca.clientWidth, H = ca.clientHeight;
+  const svg = d3.select('#'+svgId).attr('viewBox',`0 0 ${W} ${H}`);
+  const m   = {t:8, r:76, b:28, l:108};
+  const w   = W - m.l - m.r;
+  const h   = H - m.t - m.b;
+  const g   = svg.append('g').attr('transform',`translate(${m.l},${m.t})`);
+
+  const sorted = [...data].sort((a,b)=>a.val-b.val);
+  const x = d3.scaleLinear().domain([0, d3.max(data,d=>d.val)]).range([0,w]);
+  const y = d3.scaleBand().domain(sorted.map(d=>d.cc)).range([h,0]).padding(.28);
+
+  // grid
+  g.selectAll('.grid-l').data(x.ticks(5)).join('line').attr('class','grid-l')
+    .attr('x1',d=>x(d)).attr('x2',d=>x(d)).attr('y1',0).attr('y2',h);
+
+  // bars
+  g.selectAll('rect').data(sorted).join('rect')
+    .attr('x',0).attr('y',d=>y(d.cc))
+    .attr('height',y.bandwidth()).attr('width',0)
+    .attr('fill',(d,i)=>colorFn(i/sorted.length))
+    .attr('rx',2)
+    .on('mousemove',(e,d)=>showTT(e,d.name,tooltipFn(d)))
+    .on('mouseleave',hideTT)
+    .transition().duration(750).delay((_,i)=>i*55)
+    .attr('width',d=>x(d.val));
+
+  // labels
+  g.selectAll('.bar-lbl').data(sorted).join('text').attr('class','bar-lbl')
+    .attr('x',-7).attr('y',d=>y(d.cc)+y.bandwidth()/2+4)
+    .attr('text-anchor','end').text(d=>d.name);
+
+  g.selectAll('.bar-val').data(sorted).join('text').attr('class','bar-val')
+    .attr('x',d=>x(d.val)+5).attr('y',d=>y(d.cc)+y.bandwidth()/2+4)
+    .text(d=>d.val.toLocaleString()+' kt');
+
+  // axis
+  g.append('g').attr('transform',`translate(0,${h})`).attr('class','ax-tick')
+    .call(d3.axisBottom(x).ticks(5).tickFormat(d=>d+'kt'))
+    .select('.domain').remove();
+  g.selectAll('.ax-tick text').attr('fill',C.txt3).attr('font-size',10);
+}
+
+function drawExportsByType() {
+  const ca  = document.getElementById('ca3');
+  const W   = ca.clientWidth, H = ca.clientHeight;
+  const svg = d3.select('#sv3').attr('viewBox',`0 0 ${W} ${H}`);
+  const m   = {t:8, r:20, b:30, l:108};
+  const w   = W-m.l-m.r, h = H-m.t-m.b;
+  const g   = svg.append('g').attr('transform',`translate(${m.l},${m.t})`);
+
+  const keys  = ['pork','beef','poultry','lamb'];
+  const clrs  = [C.gHi, C.amber, C.blue, C.mauve];
+  const lbls  = {pork:'Pork',beef:'Beef',poultry:'Poultry',lamb:'Lamb'};
+  const ccs   = Object.keys(EXPORT_BY_TYPE);
+  const names = {DE:'Germany',NL:'Netherlands',DK:'Denmark',ES:'Spain',PL:'Poland',BE:'Belgium',FR:'France',IE:'Ireland',HU:'Hungary',AT:'Austria'};
+
+  // Stack the data
+  const totals = ccs.map(cc=>({cc, total:keys.reduce((s,k)=>s+EXPORT_BY_TYPE[cc][k],0)}))
+                    .sort((a,b)=>b.total-a.total);
+  const sorted = totals.map(d=>d.cc);
+
+  const x = d3.scaleLinear().domain([0, d3.max(totals,d=>d.total)]).range([0,w]);
+  const y = d3.scaleBand().domain(sorted).range([0,h]).padding(.26);
+
+  // grid
+  g.selectAll('.grid-l').data(x.ticks(5)).join('line').attr('class','grid-l')
+    .attr('x1',d=>x(d)).attr('x2',d=>x(d)).attr('y1',0).attr('y2',h);
+
+  // stacked bars
+  sorted.forEach(cc=>{
+    let offset = 0;
+    keys.forEach((k,ki)=>{
+      const val = EXPORT_BY_TYPE[cc][k];
+      g.append('rect')
+        .attr('x', x(offset)).attr('y', y(cc))
+        .attr('height', y.bandwidth()).attr('width', 0)
+        .attr('fill', clrs[ki]).attr('rx', ki===0?2:0)
+        .attr('opacity', .88)
+        .on('mousemove', e => showTT(e, names[cc], [
+          [lbls[k], val.toLocaleString()+' kt'],
+          ['Share of country', Math.round(val/totals.find(d=>d.cc===cc).total*100)+'%']
+        ]))
+        .on('mouseleave', hideTT)
+        .transition().duration(700).delay(ki*90)
+        .attr('width', x(val));
+      offset += val;
+    });
+    // total label
+    const total = totals.find(d=>d.cc===cc).total;
+    g.append('text').attr('class','bar-val')
+      .attr('x', x(total)+5).attr('y', y(cc)+y.bandwidth()/2+4)
+      .text(total.toLocaleString()+' kt');
+
+    // 2028 forecast % badge
+    const fPct = EXPORT_FORECAST_PCT[cc];
+    if (fPct != null) {
+      const bx = x(total) + 64;
+      const by = y(cc) + y.bandwidth()/2;
+      const pos = fPct >= 0;
+      g.append('rect').attr('x',bx).attr('y',by-9)
+        .attr('width',40).attr('height',14).attr('rx',3)
+        .attr('fill', pos ? C.gLo : '#3D1A0A').attr('opacity',.75);
+      g.append('text')
+        .attr('x',bx+20).attr('y',by+3)
+        .attr('text-anchor','middle').attr('font-size',9).attr('font-weight','600')
+        .attr('fill', pos ? C.gHi : C.amber)
+        .text((pos ? '▲ +' : '▼ ')+fPct+'%');
+    }
+  });
+
+  // country labels
+  g.selectAll('.bar-lbl').data(sorted).join('text').attr('class','bar-lbl')
+    .attr('x',-7).attr('y',cc=>y(cc)+y.bandwidth()/2+4)
+    .attr('text-anchor','end').text(cc=>names[cc]);
+
+  // x axis
+  g.append('g').attr('transform',`translate(0,${h})`)
+    .call(d3.axisBottom(x).ticks(5).tickFormat(d=>d+'kt'))
+    .call(a=>{a.select('.domain').remove(); a.selectAll('text').attr('fill',C.txt3).attr('font-size',10);});
+
+  // legend
+  const lg = document.getElementById('lg3'); lg.innerHTML='';
+  keys.forEach((k,i)=>{
+    const el=document.createElement('div'); el.className='leg-item';
+    el.innerHTML=`<div class="leg-sw" style="background:${clrs[i]}"></div>${lbls[k]}`;
+    lg.appendChild(el);
+  });
+}
+function drawImporters() {
+  drawHBar('sv4','ca4',IMPORTERS,
+    t=>d3.interpolate(C.amb2,C.amber)(t),
+    d=>[['Imports',d.val.toLocaleString()+' kt'],['Share of EU total',((d.val/8700*100).toFixed(1))+'%']]
+  );
+}
+
+// ═══════════════════════════════════════════════
+// SANKEY HELPER (custom, no external dep)
+// ═══════════════════════════════════════════════
+function drawSankey(svgId, caId, rawNodes, rawLinks) {
+  const ca = document.getElementById(caId);
+  const W  = ca.clientWidth, H = ca.clientHeight;
+  const svg = d3.select('#'+svgId).attr('viewBox',`0 0 ${W} ${H}`);
+
+  const pad = {t:20,b:20,l:90,r:90};
+  const nW  = 12;
+  const gapY = 10;
+
+  // Assign layers
+  const nodes = rawNodes.map((n,i)=>({...n, i, inFlow:0, outFlow:0}));
+  const links = rawLinks.map(l=>({...l, srcNode:nodes[l.s], tgtNode:nodes[l.t]}));
+
+  links.forEach(l=>{ l.srcNode.outFlow+=l.v; l.tgtNode.inFlow+=l.v; });
+  nodes.forEach(n=>{ n.total = Math.max(n.inFlow, n.outFlow); });
+
+  // Group nodes by layer
+  const layers = [...new Set(nodes.map(n=>n.layer))].sort((a,b)=>a-b);
+  const layerNodes = layers.map(l=>nodes.filter(n=>n.layer===l));
+
+  // X positions
+  const xScale = d3.scaleLinear().domain([0, layers.length-1])
+    .range([pad.l, W-pad.r]);
+
+  // Y positions (pack within available height)
+  const innerH = H - pad.t - pad.b;
+  layerNodes.forEach(lnodes => {
+    const totalFlow = d3.sum(lnodes, n=>n.total);
+    const spaceForBars = innerH - gapY * (lnodes.length-1);
+    let cursor = pad.t;
+    lnodes.forEach(n => {
+      n.h = Math.max(8, (n.total / totalFlow) * spaceForBars);
+      n.x0 = xScale(n.layer);
+      n.x1 = n.x0 + nW;
+      n.y0 = cursor;
+      n.y1 = cursor + n.h;
+      n.y_mid = (n.y0+n.y1)/2;
+      cursor += n.h + gapY;
+    });
+  });
+
+  // Track output cursor per node
+  nodes.forEach(n=>{ n.yCursor_out = n.y0; n.yCursor_in = n.y0; });
+
+  // Compute link paths
+  links.forEach(l=>{
+    const sn = l.srcNode, tn = l.tgtNode;
+    const totalSrc = sn.outFlow || 1;
+    const totalTgt = tn.inFlow  || 1;
+    l.lh_src = (l.v / totalSrc) * sn.h;
+    l.lh_tgt = (l.v / totalTgt) * tn.h;
+    l.y_s0 = sn.yCursor_out;
+    l.y_s1 = sn.yCursor_out + l.lh_src;
+    l.y_t0 = tn.yCursor_in;
+    l.y_t1 = tn.yCursor_in + l.lh_tgt;
+    sn.yCursor_out += l.lh_src;
+    tn.yCursor_in  += l.lh_tgt;
+  });
+
+  // Draw gradient defs
+  const defs = svg.append('defs');
+  links.forEach((l,i)=>{
+    const gid = `sk${svgId}${i}`;
+    const gr  = defs.append('linearGradient').attr('id',gid)
+      .attr('gradientUnits','userSpaceOnUse')
+      .attr('x1',l.srcNode.x1).attr('x2',l.tgtNode.x0);
+    gr.append('stop').attr('offset','0%').attr('stop-color',l.srcNode.color||C.gMid).attr('stop-opacity',.7);
+    gr.append('stop').attr('offset','100%').attr('stop-color',l.tgtNode.color||C.gLo).attr('stop-opacity',.45);
+  });
+
+  // Draw links
+  svg.selectAll('.sk-link').data(links).join('path').attr('class','sk-link')
+    .attr('d', l => {
+      const x1=l.srcNode.x1, x2=l.tgtNode.x0;
+      const mx = (x1+x2)/2;
+      const ys0=l.y_s0, ys1=l.y_s1, yt0=l.y_t0, yt1=l.y_t1;
+      return `M${x1},${ys0} C${mx},${ys0} ${mx},${yt0} ${x2},${yt0}
+              L${x2},${yt1} C${mx},${yt1} ${mx},${ys1} ${x1},${ys1} Z`;
+    })
+    .attr('fill',(l,i)=>`url(#sk${svgId}${i})`)
+    .on('mousemove',(e,l)=>showTT(e,`${l.srcNode.name} → ${l.tgtNode.name}`,[['Volume',(l.v+(l.v<10?'  Mt':' kt'))]]))
+    .on('mouseleave',hideTT);
+
+  // Draw nodes
+  svg.selectAll('.sk-node').data(nodes).join('rect').attr('class','sk-node')
+    .attr('x',n=>n.x0).attr('y',n=>n.y0)
+    .attr('width',nW).attr('height',n=>n.h)
+    .attr('fill',n=>n.color||C.gMid).attr('rx',3);
+
+  // Node labels
+  svg.selectAll('.sk-lbl').data(nodes).join('text')
+    .attr('x',n=>n.layer===0 ? n.x0-7 : n.layer===layers[layers.length-1] ? n.x1+7 : (n.x0+n.x1)/2)
+    .attr('y',n=>n.y_mid+4)
+    .attr('text-anchor',n=>n.layer===0?'end': n.layer===layers[layers.length-1]?'start':'middle')
+    .attr('fill',C.txt).attr('font-size',11).attr('font-family',C.sans)
+    .text(n=>n.name);
+}
+
+// ── Trade Corridor Sankey (section 5)
+function drawTradeCorridors() {
+  const nodes = [
+    {name:'Germany',   layer:0,color:C.gHi},
+    {name:'Netherlands',layer:0,color:C.gHi},
+    {name:'Denmark',   layer:0,color:C.gHi},
+    {name:'Spain',     layer:0,color:C.gHi},
+    {name:'Poland',    layer:0,color:C.gHi},
+    {name:'Belgium',   layer:0,color:C.gHi},
+    {name:'Italy',     layer:1,color:C.amber},
+    {name:'France',    layer:1,color:C.amber},
+    {name:'UK',        layer:1,color:C.amber},
+    {name:'Portugal',  layer:1,color:C.amber},
+    {name:'Greece',    layer:1,color:C.amber},
+  ];
+  //            s t   v(kt)
+  const links = [
+    {s:0,t:6, v:680},{s:0,t:7, v:520},{s:0,t:8, v:310},{s:0,t:10,v:120},
+    {s:1,t:8, v:290},{s:1,t:7, v:180},
+    {s:2,t:8, v:380},{s:2,t:6, v:140},
+    {s:3,t:6, v:290},{s:3,t:7, v:180},{s:3,t:9, v:150},
+    {s:4,t:8, v:200},{s:4,t:6, v:180},
+    {s:5,t:7, v:240},{s:5,t:6, v:160},
+  ];
+  drawSankey('sv5','ca5',nodes,links);
+}
+
+// ── Supply Chain Sankey (section 6)
+function drawSupplyChain() {
+  const nodes = [
+    {name:'Pork',       layer:0,color:C.gHi},
+    {name:'Beef',       layer:0,color:C.amber},
+    {name:'Poultry',    layer:0,color:C.blue},
+    {name:'Lamb',       layer:0,color:C.mauve},
+    {name:'Germany',    layer:1,color:C.gMid},
+    {name:'Spain',      layer:1,color:C.gMid},
+    {name:'France',     layer:1,color:C.gMid},
+    {name:'Poland',     layer:1,color:C.gMid},
+    {name:'Netherlands',layer:1,color:C.gMid},
+    {name:'Domestic',   layer:2,color:C.gLo},
+    {name:'Western EU', layer:2,color:C.gLo},
+    {name:'Eastern EU', layer:2,color:C.gLo},
+    {name:'3rd Export', layer:2,color:C.gLo},
+  ];
+  const links = [
+    // Livestock → Processing
+    {s:0,t:4,v:8.2},{s:0,t:7,v:4.1},{s:0,t:5,v:5.8},
+    {s:1,t:4,v:2.8},{s:1,t:6,v:3.2},{s:1,t:5,v:1.6},
+    {s:2,t:7,v:3.9},{s:2,t:8,v:2.4},{s:2,t:6,v:2.1},
+    {s:3,t:5,v:0.8},{s:3,t:6,v:0.6},
+    // Processing → Market
+    {s:4,t:9, v:5.6},{s:4,t:10,v:5.2},{s:4,t:12,v:2.1},
+    {s:5,t:9, v:4.2},{s:5,t:10,v:2.8},{s:5,t:12,v:1.4},
+    {s:6,t:9, v:3.8},{s:6,t:10,v:2.1},{s:6,t:11,v:0.9},
+    {s:7,t:9, v:2.4},{s:7,t:11,v:3.2},{s:7,t:10,v:1.7},
+    {s:8,t:10,v:2.8},{s:8,t:12,v:1.6},{s:8,t:9, v:0.8},
+  ];
+  drawSankey('sv6','ca6',nodes,links);
+}
+
+// ═══════════════════════════════════════════════
+// SECTION 7 — GROUPED BAR (MEAT TYPES)
+// ═══════════════════════════════════════════════
+function drawMeatTypes() {
+  const ca = document.getElementById('ca7');
+  const W  = ca.clientWidth, H = ca.clientHeight;
+  const svg = d3.select('#sv7').attr('viewBox',`0 0 ${W} ${H}`);
+  const m  = {t:16,r:20,b:38,l:44};
+  const w  = W-m.l-m.r, h = H-m.t-m.b;
+  const g  = svg.append('g').attr('transform',`translate(${m.l},${m.t})`);
+
+  const ccs   = Object.keys(MEAT_TYPES);
+  const keys  = ['pork','beef','poultry','lamb'];
+  const clrs  = [C.gHi,C.amber,C.blue,C.mauve];
+  const lbls  = {pork:'Pork',beef:'Beef',poultry:'Poultry',lamb:'Lamb'};
+
+  const x0 = d3.scaleBand().domain(ccs).range([0,w]).paddingInner(.22);
+  const x1 = d3.scaleBand().domain(keys).range([0,x0.bandwidth()]).padding(.05);
+  const y  = d3.scaleLinear().domain([0,60]).range([h,0]);
+
+  // grid
+  g.selectAll('.grid-l').data(y.ticks(5)).join('line').attr('class','grid-l')
+    .attr('x1',0).attr('x2',w).attr('y1',d=>y(d)).attr('y2',d=>y(d));
+
+  // grouped bars
+  keys.forEach((k,ki)=>{
+    g.selectAll(`.b${ki}`).data(ccs).join('rect')
+      .attr('x',cc=>x0(cc)+x1(k))
+      .attr('y',h).attr('width',x1.bandwidth()).attr('height',0)
+      .attr('fill',clrs[ki]).attr('rx',1).attr('opacity',.88)
+      .on('mousemove',(e,cc)=>showTT(e,NAMES[cc],[
+        [lbls[k], MEAT_TYPES[cc][k]+' kg/yr'],
+        ['Total', Object.values(MEAT_TYPES[cc]).reduce((a,b)=>a+b,0)+' kg/yr']
+      ]))
+      .on('mouseleave',hideTT)
+      .transition().duration(650).delay(ki*80)
+      .attr('y',cc=>y(MEAT_TYPES[cc][k])).attr('height',cc=>h-y(MEAT_TYPES[cc][k]));
+  });
+
+  // x axis
+  g.append('g').attr('transform',`translate(0,${h})`).call(d3.axisBottom(x0))
+    .call(a=>{a.select('.domain').remove(); a.selectAll('text').attr('fill',C.txt2).attr('font-size',11);});
+
+  // y axis
+  g.append('g').call(d3.axisLeft(y).ticks(5).tickFormat(d=>d+' kg'))
+    .call(a=>{a.select('.domain').remove(); a.selectAll('text').attr('fill',C.txt3).attr('font-size',10);});
+
+  // legend
+  const lg = document.getElementById('lg7'); lg.innerHTML='';
+  keys.forEach((k,i)=>{
+    const el = document.createElement('div'); el.className='leg-item';
+    el.innerHTML=`<div class="leg-sw" style="background:${clrs[i]}"></div>${lbls[k]}`;
+    lg.appendChild(el);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// SECTION 8 — PRODUCTION TREND + FORECAST (line chart)
+// ═══════════════════════════════════════════════
+function drawProductionTrend() {
+  const ca  = document.getElementById('ca8');
+  const W   = ca.clientWidth, H = ca.clientHeight;
+  const svg = d3.select('#sv8').attr('viewBox',`0 0 ${W} ${H}`);
+  const m   = {t:24, r:24, b:38, l:52};
+  const w   = W-m.l-m.r, h = H-m.t-m.b;
+  const g   = svg.append('g').attr('transform',`translate(${m.l},${m.t})`);
+
+  const keys  = ['pork','beef','poultry','lamb'];
+  const clrs  = {pork:C.gHi, beef:C.amber, poultry:C.blue, lamb:C.mauve};
+  const lbls  = {pork:'Pork',beef:'Beef',poultry:'Poultry',lamb:'Lamb'};
+  const years = PRODUCTION_TREND.years;
+
+  const x = d3.scaleLinear().domain([years[0], years[years.length-1]]).range([0,w]);
+  const allVals = keys.flatMap(k=>PRODUCTION_TREND[k]);
+  const y = d3.scaleLinear().domain([0, d3.max(allVals)*1.08]).range([h,0]);
+
+  // ── Forecast zone shading ──
+  const fxStart = x(FORECAST_START);
+  g.append('rect')
+    .attr('x',fxStart).attr('y',0)
+    .attr('width',w-fxStart).attr('height',h)
+    .attr('fill',C.card2).attr('opacity',.55);
+
+  // Zone labels
+  g.append('text').attr('x',fxStart/2).attr('y',-8)
+    .attr('text-anchor','middle').attr('fill',C.txt3).attr('font-size',9.5)
+    .attr('letter-spacing','0.12em').text('HISTORICAL');
+  g.append('text').attr('x',fxStart+(w-fxStart)/2).attr('y',-8)
+    .attr('text-anchor','middle').attr('fill',C.amber).attr('font-size',9.5)
+    .attr('letter-spacing','0.12em').attr('opacity',.8).text('FORECAST →');
+
+  // Separator line
+  g.append('line')
+    .attr('x1',fxStart).attr('x2',fxStart).attr('y1',-14).attr('y2',h)
+    .attr('stroke',C.border).attr('stroke-width',1).attr('stroke-dasharray','4 3');
+
+  // Y grid
+  g.selectAll('.grid-l').data(y.ticks(5)).join('line').attr('class','grid-l')
+    .attr('x1',0).attr('x2',w).attr('y1',d=>y(d)).attr('y2',d=>y(d));
+
+  // ── Lines ──
+  const lineActual   = d3.line().x((_,i)=>x(years[i])).y(d=>y(d)).curve(d3.curveMonotoneX);
+  const lineForecast = d3.line().x((_,i)=>x(years[i])).y(d=>y(d)).curve(d3.curveMonotoneX);
+
+  const fIdx = years.indexOf(FORECAST_START) - 1; // index of last actual point
+
+  keys.forEach(k=>{
+    const vals = PRODUCTION_TREND[k];
+    const actual   = vals.slice(0, fIdx+1);          // up to and including 2026
+    const forecast = vals.slice(fIdx);               // 2026 onwards (overlap at join)
+    const fYears   = years.slice(fIdx);
+
+    // Confidence band (forecast zone)
+    const bandAbove = forecast.map(v=>v*1.06);
+    const bandBelow = forecast.map(v=>v*0.94);
+    const areaFn = d3.area()
+      .x((_,i)=>x(fYears[i])).y0((_,i)=>y(bandBelow[i])).y1((_,i)=>y(bandAbove[i]))
+      .curve(d3.curveMonotoneX);
+    g.append('path').datum(forecast)
+      .attr('d',areaFn).attr('fill',clrs[k]).attr('opacity',.07);
+
+    // Actual line
+    const pathA = g.append('path')
+      .datum(actual)
+      .attr('fill','none')
+      .attr('stroke',clrs[k]).attr('stroke-width',2.2)
+      .attr('d',lineActual);
+    const lenA = pathA.node().getTotalLength();
+    pathA.attr('stroke-dasharray',lenA+' '+lenA).attr('stroke-dashoffset',lenA)
+      .transition().duration(1200).delay(keys.indexOf(k)*120).ease(d3.easeQuadInOut)
+      .attr('stroke-dashoffset',0);
+
+    // Forecast line (dashed)
+    const pathF = g.append('path')
+      .datum(forecast)
+      .attr('fill','none')
+      .attr('stroke',clrs[k]).attr('stroke-width',1.6).attr('stroke-dasharray','5 4')
+      .attr('opacity',.75)
+      .attr('d',d3.line().x((_,i)=>x(fYears[i])).y(d=>y(d)).curve(d3.curveMonotoneX));
+    const lenF = pathF.node().getTotalLength();
+    pathF.attr('stroke-dashoffset',lenF)
+      .transition().duration(1000).delay(1200+keys.indexOf(k)*80).ease(d3.easeQuadInOut)
+      .attr('stroke-dashoffset',0).attr('stroke-dasharray','5 4');
+
+    // End-of-line label
+    const lastY = vals[vals.length-1];
+    g.append('text')
+      .attr('x',w+5).attr('y',y(lastY)+4)
+      .attr('fill',clrs[k]).attr('font-size',10).attr('font-weight','600')
+      .text(lbls[k]);
+
+    // Dots on actual data points
+    actual.forEach((v,i)=>{
+      g.append('circle')
+        .attr('cx',x(years[i])).attr('cy',y(v)).attr('r',3)
+        .attr('fill',clrs[k]).attr('opacity',.0)
+        .on('mousemove',e=>showTT(e,lbls[k]+' — '+years[i],[
+          ['Production',v.toFixed(1)+' Mt'],
+          ['Status', i <= fIdx ? 'Actual' : 'Forecast']
+        ]))
+        .on('mouseleave',hideTT)
+        .transition().delay(1200+i*40).attr('opacity',.9);
+    });
+  });
+
+  // X axis
+  g.append('g').attr('transform',`translate(0,${h})`)
+    .call(d3.axisBottom(x).tickFormat(d3.format('d')).ticks(years.length))
+    .call(a=>{a.select('.domain').remove(); a.selectAll('text').attr('fill',C.txt3).attr('font-size',10);});
+
+  // Y axis
+  g.append('g').call(d3.axisLeft(y).ticks(5).tickFormat(d=>d+' Mt'))
+    .call(a=>{a.select('.domain').remove(); a.selectAll('text').attr('fill',C.txt3).attr('font-size',10);});
+
+  // Legend
+  const lg = document.getElementById('lg8'); lg.innerHTML='';
+  keys.forEach(k=>{
+    const el=document.createElement('div'); el.className='leg-item';
+    el.innerHTML=`<div class="leg-sw" style="background:${clrs[k]}"></div>${lbls[k]}`;
+    lg.appendChild(el);
+  });
+  // Add forecast style indicator to legend
+  const fe=document.createElement('div'); fe.className='leg-item';
+  fe.innerHTML=`<svg width="22" height="10"><line x1="0" y1="5" x2="22" y2="5" stroke="${C.amber}" stroke-width="1.5" stroke-dasharray="4 3"/></svg><span style="color:${C.txt3}">Forecast</span>`;
+  lg.appendChild(fe);
+}
+
+// ═══════════════════════════════════════════════
+// SECTION 9 — TRADE BALANCE BY MEAT TYPE
+// ═══════════════════════════════════════════════
+function drawBalanceByType() {
+  const ca  = document.getElementById('ca9');
+  const W   = ca.clientWidth, H = ca.clientHeight;
+  const svg = d3.select('#sv9').attr('viewBox',`0 0 ${W} ${H}`);
+  const m   = {t:8, r:70, b:28, l:108};
+  const w   = W-m.l-m.r, h = H-m.t-m.b;
+  const g   = svg.append('g').attr('transform',`translate(${m.l},${m.t})`);
+
+  const keys  = ['pork','beef','poultry','lamb'];
+  const clrs  = {pork:C.gHi, beef:C.amber, poultry:C.blue, lamb:C.mauve};
+  const lbls  = {pork:'Pork',beef:'Beef',poultry:'Poultry',lamb:'Lamb'};
+  const countryNames9 = {DE:'Germany',NL:'Netherlands',DK:'Denmark',ES:'Spain',PL:'Poland',FR:'France',IT:'Italy',GB:'UK'};
+  const ccs   = Object.keys(BALANCE_BY_TYPE);
+
+  const allVals = ccs.flatMap(cc=>keys.map(k=>BALANCE_BY_TYPE[cc][k]));
+  const maxA    = d3.max(allVals.map(Math.abs)) * 1.08;
+
+  const x  = d3.scaleLinear().domain([-maxA, maxA]).range([0, w]);
+  const y0 = d3.scaleBand().domain(ccs).range([0, h]).paddingInner(.28);
+  const y1 = d3.scaleBand().domain(keys).range([0, y0.bandwidth()]).padding(.08);
+
+  // zero line
+  g.append('line')
+    .attr('x1',x(0)).attr('x2',x(0)).attr('y1',-6).attr('y2',h+6)
+    .attr('stroke',C.txt3).attr('stroke-width',1).attr('stroke-dasharray','3 4');
+
+  // gridlines
+  [-1500,-1000,-500,500,1000,1500].forEach(v=>{
+    g.append('line').attr('class','grid-l')
+      .attr('x1',x(v)).attr('x2',x(v)).attr('y1',0).attr('y2',h);
+  });
+
+  // bars
+  ccs.forEach(cc=>{
+    keys.forEach((k,ki)=>{
+      const val = BALANCE_BY_TYPE[cc][k];
+      const bx  = val >= 0 ? x(0) : x(val);
+      const bw  = Math.abs(x(val)-x(0));
+      const by  = y0(cc) + y1(k);
+      const bh  = y1.bandwidth();
+      const clr = clrs[k];
+
+      g.append('rect')
+        .attr('x', x(0)).attr('y', by)
+        .attr('width', 0).attr('height', bh)
+        .attr('fill', clr)
+        .attr('opacity', val >= 0 ? .88 : .55)
+        .attr('rx', 2)
+        .on('mousemove', e=>showTT(e, countryNames9[cc]+' — '+lbls[k], [
+          ['Balance', (val>0?'+':'')+val.toLocaleString()+' kt'],
+          ['Position', val>0?'Surplus':'Deficit']
+        ]))
+        .on('mouseleave', hideTT)
+        .transition().duration(650).delay(ki*70)
+        .attr('x', bx).attr('width', bw);
+    });
+
+    // country label
+    g.append('text').attr('class','bar-lbl')
+      .attr('x', x(0)-8)
+      .attr('y', y0(cc) + y0.bandwidth()/2 + 4)
+      .attr('text-anchor','end')
+      .text(countryNames9[cc]);
+  });
+
+  // x axis
+  g.append('g').attr('transform',`translate(0,${h})`)
+    .call(d3.axisBottom(x).ticks(7).tickFormat(d=>(d>0?'+':'')+d+'kt'))
+    .call(a=>{a.select('.domain').remove(); a.selectAll('text').attr('fill',C.txt3).attr('font-size',9);});
+
+  // legend
+  const lg = document.getElementById('lg9'); lg.innerHTML='';
+  keys.forEach(k=>{
+    const el=document.createElement('div'); el.className='leg-item';
+    el.innerHTML=`<div class="leg-sw" style="background:${clrs[k]}"></div>${lbls[k]}`;
+    lg.appendChild(el);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// SECTION 10 — MAJOR INDUSTRY PLAYERS
+// ═══════════════════════════════════════════════
+function drawCompanies() {
+  const ca  = document.getElementById('ca10');
+  const W   = ca.clientWidth, H = ca.clientHeight;
+  const svg = d3.select('#sv10').attr('viewBox',`0 0 ${W} ${H}`);
+
+  const typeClr = {pork:C.gHi, beef:C.amber, poultry:C.blue, processed:C.mauve, mixed:C.txt3};
+  const typeLbl = {pork:'Pork',beef:'Beef',poultry:'Poultry',processed:'Processed',mixed:'Mixed'};
+
+  // Country badge colours (muted, distinct)
+  const ccBadge = {
+    DK:'#1A6E3C', DE:'#1C5E34', NL:'#1A4E4E', FR:'#1A3A5C',
+    ES:'#5C3010', CH:'#3A3A4A', PL:'#5C1A1A', LT:'#3A1A5C'
+  };
+
+  const sorted = [...COMPANIES].sort((a,b)=>a.rev-b.rev); // ascending for horizontal bar
+
+  // Margins — wider left to prevent badge/name overlap
+  const m  = {t:10, r:150, b:28, l:200};
+  const w  = W-m.l-m.r;
+  const h  = H-m.t-m.b;
+  const g  = svg.append('g').attr('transform',`translate(${m.l},${m.t})`);
+
+  const x  = d3.scaleLinear().domain([0, 10]).range([0, w]);
+  const y  = d3.scaleBand().domain(sorted.map(d=>d.name)).range([h,0]).padding(.28);
+
+  // Revenue axis grid
+  g.selectAll('.grid-l').data(x.ticks(5)).join('line').attr('class','grid-l')
+    .attr('x1',d=>x(d)).attr('x2',d=>x(d)).attr('y1',0).attr('y2',h);
+
+  // ── Highlight band for Biovela ──
+  const bv = sorted.find(d=>d.highlight);
+  if (bv) {
+    g.append('rect')
+      .attr('x',-m.l).attr('y',y(bv.name)-4)
+      .attr('width',W).attr('height',y.bandwidth()+8)
+      .attr('fill',C.gLo).attr('opacity',.18).attr('rx',3);
+    // annotation arrow + label
+    const bvX = x(bv.rev) + 8;
+    const bvY = y(bv.name) + y.bandwidth()/2;
+
+  }
+
+  // ── Bars ──
+  g.selectAll('.cbar').data(sorted).join('rect').attr('class','cbar')
+    .attr('x',0).attr('y',d=>y(d.name))
+    .attr('height',y.bandwidth()).attr('width',0)
+    .attr('fill',d=>typeClr[d.type]||C.txt2)
+    .attr('opacity', d => d.highlight ? 0.95 : 0.78)
+    .attr('rx',2)
+    .on('mousemove',(e,d)=>showTT(e,d.name,[
+      ['Country', NAMES[d.cc]||d.cc],
+      ['Revenue', '€'+d.rev.toFixed(1)+'B'],
+      ['Employees', (d.emp*1000).toLocaleString()],
+      ['Primary product', typeLbl[d.type]||d.type]
+    ]))
+    .on('mouseleave',hideTT)
+    .transition().duration(750).delay((_,i)=>i*55)
+    .attr('width',d=>x(d.rev));
+
+  // ── Revenue label after bar ──
+  g.selectAll('.rev-lbl').data(sorted).join('text').attr('class','bar-val')
+    .attr('x',d=>x(d.rev)+6)
+    .attr('y',d=>y(d.name)+y.bandwidth()/2+4)
+    .text(d=>'€'+d.rev.toFixed(1)+'B');
+
+  // ── Employee count (right side) ──
+  // Employee dot scale
+  const empMax = d3.max(sorted, d=>d.emp);
+  const empR   = d3.scaleSqrt().domain([0,empMax]).range([3,14]);
+
+  // right-side employee axis header
+  svg.append('text')
+    .attr('x', W-m.r+42).attr('y', m.t-2)
+    .attr('text-anchor','middle').attr('fill',C.txt3).attr('font-size',9)
+    .text('Employees');
+
+  sorted.forEach(d=>{
+    const cy = m.t + y(d.name) + y.bandwidth()/2;
+    const cx = W - m.r + 42;
+    svg.append('circle')
+      .attr('cx',cx).attr('cy',cy)
+      .attr('r', empR(d.emp))
+      .attr('fill', typeClr[d.type]||C.txt2)
+      .attr('opacity',.35);
+    svg.append('text')
+      .attr('x',cx).attr('y',cy+4)
+      .attr('text-anchor','middle')
+      .attr('fill',C.txt2).attr('font-size',9)
+      .text(d.emp>=10 ? Math.round(d.emp)+'k' : d.emp.toFixed(1)+'k');
+  });
+
+  // ── Country badge + company name (left of bar) ──
+  // Layout: [6px] [badge 28px] [8px gap] [company name right-aligned at m.l-10]
+  sorted.forEach(d=>{
+    const cy = m.t + y(d.name) + y.bandwidth()/2;
+
+    // badge: pinned to left edge of SVG
+    svg.append('rect')
+      .attr('x', 6).attr('y', cy - 9)
+      .attr('width', 28).attr('height', 17)
+      .attr('fill', ccBadge[d.cc]||C.gLo).attr('rx',3);
+    svg.append('text')
+      .attr('x', 20).attr('y', cy+5)
+      .attr('text-anchor','middle')
+      .attr('fill',C.txt).attr('font-size',9).attr('font-weight','600')
+      .text(d.cc);
+
+    // company name: right-aligned, starting after badge, ending before bar
+    svg.append('text')
+      .attr('x', m.l - 10).attr('y', cy+4)
+      .attr('text-anchor','end')
+      .attr('fill', d.highlight ? C.gHi : C.txt2)
+      .attr('font-size', d.highlight ? 12 : 11)
+      .attr('font-weight', d.highlight ? '600' : '400')
+      .text(d.name);
+  });
+
+  // ── X axis ──
+  g.append('g').attr('transform',`translate(0,${h})`)
+    .call(d3.axisBottom(x).ticks(5).tickFormat(d=>'€'+d+'B'))
+    .call(a=>{a.select('.domain').remove(); a.selectAll('text').attr('fill',C.txt3).attr('font-size',10);});
+
+  // ── Legend ──
+  const lg = document.getElementById('lg10'); lg.innerHTML='';
+  Object.entries(typeLbl).forEach(([k,lbl])=>{
+    const el=document.createElement('div'); el.className='leg-item';
+    el.innerHTML=`<div class="leg-sw" style="background:${typeClr[k]}"></div>${lbl}`;
+    lg.appendChild(el);
+  });
+}
+
+// ═══════════════════════════════════════════════
+// INTERSECTION OBSERVER — trigger on scroll
+// ═══════════════════════════════════════════════
+const drawn = new Set();
+const drawFns = {
+  s1: drawConsumptionMap,
+  s2: drawBalanceMap,
+  s3: drawExportsByType,
+  s4: drawImporters,
+  s5: drawTradeCorridors,
+  s6: drawSupplyChain,
+  s7: drawMeatTypes,
+  s8: drawProductionTrend,
+  s9: drawBalanceByType,
+  s10: drawCompanies,
+};
+
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(entry => {
+    if (!entry.isIntersecting) return;
+    const id  = entry.target.id;
+    const idx = parseInt(id.replace('s',''),10);
+
+    // update nav dots
+    document.querySelectorAll('.nav-dot').forEach((dot,i)=>
+      dot.classList.toggle('active', i===idx)
+    );
+
+    // draw chart once
+    if (!drawn.has(id) && drawFns[id]) {
+      drawn.add(id);
+      const ca = entry.target.querySelector('.chart-area');
+      setTimeout(()=>{
+        drawFns[id]();
+        if (ca) ca.classList.add('in');
+      }, 80);
+    }
+  });
+}, { threshold: 0.35 });
+
+document.querySelectorAll('.section').forEach(s=>obs.observe(s));
+
+// nav dot click
+document.querySelectorAll('.nav-dot').forEach(dot=>{
+  dot.addEventListener('click',()=>{
+    document.getElementById('s'+dot.dataset.s).scrollIntoView({behavior:'smooth'});
+  });
+});
+</script>
+</body>
+</html>
